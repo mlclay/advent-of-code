@@ -14,11 +14,16 @@ class FabricSquare:
         self.top_offset = int(top_offset)
         self.width = int(width)
         self.height = int(height)
+        self.coords = self.generate_coords()
 
-    def get_area_coords(self):
+    def generate_coords(self):
+        coords = []
+
         for x in range(self.left_offset, self.left_offset + self.width):
             for y in range(self.top_offset, self.top_offset + self.height):
-                yield x, y
+                coords.append((x, y))
+
+        return coords
 
     def __str__(self):
         return (
@@ -41,6 +46,7 @@ class FabricSquare:
 
 
 def parse_input():
+    perfect_square_id = None
     all_squares = []
     fabric = defaultdict(int)
 
@@ -53,15 +59,23 @@ def parse_input():
             square = FabricSquare.from_string(line)
             all_squares.append(square)
 
-            for coord in square.get_area_coords():
+            for coord in square.coords:
                 fabric[coord] += 1
 
         multi_claims = {k: v for (k, v) in fabric.items() if v > 1}
 
-    return len(multi_claims)
+    # Process squares for Part 2
+    for square in all_squares:
+        multi_claims_in_square = [x for x, y in square.coords if (x, y) in multi_claims.keys()]
+
+        if len(multi_claims_in_square) == 0:
+            perfect_square_id = square.num
+            break
+
+    return len(multi_claims), perfect_square_id
 
 
 if __name__ == '__main__':
-    part_one = parse_input()
+    part_one, part_two = parse_input()
 
-    print(f'Part One: {part_one}')
+    print(f'Part One: {part_one}\nPart Two: {part_two}')
