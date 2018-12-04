@@ -24,20 +24,39 @@ class Guard:
         return (
             f'ID: {self.id_}; '
             f'total_asleep: {self.total_asleep}; '
-            f'sleepiest_minute: {self.sleepiest_minute()}; '
+            f'sleepiest_minute: {self.sleepiest_minute_count()}; '
         )
 
     def track_sleep(self, fell_asleep, wakes_up):
+        """
+        Builds the dictionary tracking individual minutes asleep and calculates total time asleep
+
+        :param fell_asleep: Minute guard fell asleep
+        :param wakes_up: Minute guard woke up
+        """
         for minute in range(fell_asleep, wakes_up):
             self.asleep[minute] += 1
         self.total_asleep += (wakes_up - fell_asleep)
 
-    def sleepiest_minute(self):
-        minute, count = sorted(self.asleep.items(), key=lambda kv: kv[1], reverse=True)[0]
-        return minute
+    def sleepiest_minute_count(self):
+        """
+        Get the (minute, count) of the sleepiest this guard consistently is
+
+        :return: tuple: (minute, count) of the sleepiest minute and how many days this guard slept on that minute
+        """
+        asleep_sorted_count = sorted(self.asleep.items(), key=lambda kv: kv[1], reverse=True)
+        try:
+            return asleep_sorted_count[0]
+        except IndexError:
+            return -1, -1
 
 
 def get_duty_log():
+    """
+    Parse input.txt and build a sorted lit of input strings
+
+    :return: list: timestamp sorted duty log
+    """
     guard_duties = []
 
     with open('input.txt', 'r') as txt:
@@ -50,6 +69,12 @@ def get_duty_log():
 
 
 def parse_duty_log(duty_log):
+    """
+    Parse the duty logs and generate Guard objects, capture sleep patterns
+
+    :param duty_log: timestamp sorted duty log
+    :return: dictionary: Guard objects keyed by ID
+    """
     guards = {}
     current_guard = None
     last_asleep = None
@@ -83,7 +108,23 @@ def parse_duty_log(duty_log):
 
 
 def find_sleepiest_guard(guards):
+    """
+    Search Guards for the one that sleeps the most (total_asleep)
+
+    :param guards: dictionary: All Guards
+    :return: Guard: The sleepiest Guard
+    """
     return sorted(guards.values(), key=operator.attrgetter('total_asleep'), reverse=True)[0]
+
+
+def find_consistently_asleep_guard(guards):
+    """
+    Search Guards for the one that sleeps the most consistently
+
+    :param guards: dictionary: All Guards
+    :return: Guard: The Guard that sleeps more at one minute than any other Guard
+    """
+    return sorted(guards.values(), key=lambda guard: guard.sleepiest_minute_count()[1], reverse=True)[0]
 
 
 def main():
@@ -91,8 +132,10 @@ def main():
     guards = parse_duty_log(duty_log)
 
     sleepiest = find_sleepiest_guard(guards)
+    consistent = find_consistently_asleep_guard(guards)
 
-    print(f'Part One: {sleepiest.id_ * sleepiest.sleepiest_minute()}')
+    print(f'Part One: {sleepiest.id_ * sleepiest.sleepiest_minute_count()[0]}')
+    print(f'Part Two: {consistent.id_ * consistent.sleepiest_minute_count()[0]}')
 
 
 if __name__ == '__main__':
