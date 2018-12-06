@@ -54,26 +54,29 @@ def calculate_grid_distances(danger_points, x_min, y_min, x_max, y_max):
     :param y_min: Bounding Box minimum Y
     :param x_max: Bounding Box maximum X
     :param y_max: Bounding Box maximum Y
-    :return: dictionary of x,y coordinates mapped to the closet x,y danger point
+    :return: tuple: dictionary of x,y coordinates mapped to the closet x,y danger point
+             and dictionary of x,y coordinates and the sum of manhattan distance to all safe points
     """
-    grid = {}
+    danger_grid = {}
+    summation_grid = defaultdict(int)
 
     for x in range(x_min, x_max + 1):
         for y in range(y_min, y_max + 1):
             min_distance = y_max + x_max
-            grid[(x, y)] = None
+            danger_grid[(x, y)] = None
 
             for danger_point in danger_points:
                 distance = manhattan_distance((x, y), danger_point)
+                summation_grid[(x, y)] += distance
 
                 if distance == min_distance:
-                    grid[(x, y)] = None
+                    danger_grid[(x, y)] = None
 
                 elif distance < min_distance:
                     min_distance = distance
-                    grid[(x, y)] = danger_point
+                    danger_grid[(x, y)] = danger_point
 
-    return grid
+    return danger_grid, summation_grid
 
 
 def remove_invalid_grid_points(grid, danger_points, x_min, y_min, x_max, y_max):
@@ -118,12 +121,16 @@ def main():
 
     x_min, y_min, x_max, y_max = get_bounding_box(target_coordinates)
 
-    grid = calculate_grid_distances(target_coordinates, x_min, y_min, x_max, y_max)
-    valid_grid = remove_invalid_grid_points(grid, target_coordinates, x_min, y_min, x_max, y_max)
+    danger_grid, summation_grid = calculate_grid_distances(target_coordinates, x_min, y_min, x_max, y_max)
+    valid_grid = remove_invalid_grid_points(danger_grid, target_coordinates, x_min, y_min, x_max, y_max)
 
     largest_area = get_largest_area(valid_grid)
 
     print(f'Part One: {largest_area}')
+
+    safe_area = {k: v for k, v in summation_grid.items() if v < 10000}
+
+    print(f'Part Two: {len(safe_area)}')
 
 
 if __name__ == '__main__':
