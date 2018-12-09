@@ -20,6 +20,17 @@ class Node:
         """
         return sum(self.metadata) + sum([child.calculate_metadata_sum() for child in self.children])
 
+    def calculate_value(self):
+        """
+        Calculate the Value of the node
+
+        :return: node value
+        """
+        if not self.num_children:
+            return self.calculate_metadata_sum()
+        return sum(
+            [self.children[index - 1].calculate_value() for index in self.metadata if index <= len(self.children)])
+
     @staticmethod
     def generate_from_list(tree):
         """
@@ -60,6 +71,7 @@ def main():
     tree, node = Node.generate_from_list(tree)
 
     print(f'Part One: {node.calculate_metadata_sum()}')
+    print(f'Part Two: {node.calculate_value()}')
 
 
 if __name__ == '__main__':
