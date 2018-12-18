@@ -3,6 +3,9 @@ from enum import Enum
 
 
 class XY:
+    """
+    Base XY Coordinate class
+    """
     def __init__(self, x, y):
         self.x = int(x)
         self.y = int(y)
@@ -12,6 +15,10 @@ class XY:
 
 
 class MineCart(XY):
+    """
+    XY Coordinate that includes a heading and next turning direction, representing a Mine Cart
+    """
+
     def __init__(self, x, y, char):
         super(MineCart, self).__init__(x, y)
         self.heading = MineCart.Heading.from_char(char)
@@ -22,6 +29,12 @@ class MineCart(XY):
         return f'{xy}\tHeading {self.heading}\tNext Int: {self.next_turn}'
 
     def corner(self, char):
+        """
+        Depending on the cart direction, and the track cross-roads entered, turn the appropriate direction
+
+        :param char: '/' or '\' indicating turn direction
+        """
+
         if (self.heading == MineCart.Heading.NORTH and char == '/') or (
                 self.heading == MineCart.Heading.SOUTH and char == '\\'):
             self.heading = MineCart.Heading.EAST
@@ -45,11 +58,23 @@ class MineCart(XY):
         raise Exception('Invalid Turn')
 
     def intersection(self):
+        """
+        Depending on the cart direction and this cart's next intersection action, change heading
+        """
+
         self.heading = self.heading + self.next_turn
 
         self.next_turn = self.next_turn + (1 if self.next_turn < 1 else - 2)
 
     def move(self, mine_carts, cross_roads):
+        """
+        Move self 1 unit in heading direction
+
+        :param mine_carts: Dictionary of other MineCarts for collision detection
+        :param cross_roads: Dictionary of CrossRoads for intersection/turn detection
+        :raises: CollisionError if new position is occupied
+        """
+
         old_coordinates = (self.x, self.y)
 
         if self.heading == MineCart.Heading.NORTH:
@@ -63,16 +88,23 @@ class MineCart(XY):
 
         new_coordinates = (self.x, self.y)
 
-        del mine_carts[old_coordinates]
+        if old_coordinates in mine_carts.keys():
+            del mine_carts[old_coordinates]
 
-        if new_coordinates in mine_carts.keys():
-            raise MineCart.CollisionError(new_coordinates)
+            if new_coordinates in mine_carts.keys():
+                del mine_carts[new_coordinates]
+                raise MineCart.CollisionError(new_coordinates)
 
-        self.handle_cross_roads(cross_roads)
+            self.handle_cross_roads(cross_roads)
 
-        mine_carts[new_coordinates] = self
+            mine_carts[new_coordinates] = self
 
     def handle_cross_roads(self, cross_roads):
+        """
+        Intersection/Turn processing.  MineCart heading may be modified
+
+        :param cross_roads: Dictionary of CrossRoads for finding intersections or turns
+        """
         if (self.x, self.y) in cross_roads.keys():
             cross_road = cross_roads[(self.x, self.y)]
             if cross_road.turn:
@@ -90,6 +122,15 @@ class MineCart(XY):
             return self.name
 
         def __add__(self, other):
+            """
+            Integer addition to a Heading.
+            Positive values will rotate heading clockwise.
+            Negative values will rotate heading counter-clockwise.
+
+            :param other: Integer value for Heading change
+            :return: new Heading
+            """
+
             if not isinstance(other, int):
                 raise Exception('Invalid Heading Addition')
             return MineCart.Heading((self.value + other) % 4)
@@ -113,6 +154,10 @@ class MineCart(XY):
 
 
 class CrossRoad(XY):
+    """
+    XY Coordinate that indicates if this is an intersection or a turn
+    """
+
     def __init__(self, x, y, char):
         super(CrossRoad, self).__init__(x, y)
         self.intersection = char == '+'
@@ -151,12 +196,19 @@ def parse_input():
 def main():
     cross_roads, mine_carts = parse_input()
 
-    try:
-        while True:
-            for key, value in sorted(mine_carts.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+    first_collision = True
+
+    while True:
+        for key, value in sorted(mine_carts.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+            try:
                 value.move(mine_carts, cross_roads)
-    except MineCart.CollisionError as collision:
-        print(f'Collision at {collision.coords}')
+            except MineCart.CollisionError as collision:
+                if first_collision:
+                    first_collision = False
+                    print(f'Collision at {collision.coords}')
+        if len(mine_carts) <= 1:
+            print(f'Last surviving Cart at {list(mine_carts.keys())}')
+            break
 
 
 if __name__ == '__main__':
