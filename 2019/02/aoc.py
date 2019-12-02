@@ -63,18 +63,38 @@ class Program:
             for position, code in enumerate(txt.read().strip().split(',')):
                 self.set_memory_address(position, code)
 
+    def dump_memory(self):
+        return dict(self._memory)
+
+    def load_memory(self, memory):
+        if not isinstance(memory, dict):
+            raise Exception('Failed loading invalid memory')
+        self._memory.update(memory)
+        self._next_instruction = 0
+
     def set_memory_address(self, address, code):
         self._memory[address] = int(code)
 
     def get_memory_address(self, address):
         return self._memory[address]
 
-    def run(self):
+    def execute_next(self):
         instruction = self.get_instruction_by_opcode(self.get_memory_address(self._next_instruction))
 
         instruction.execute(self._memory, self._next_instruction)
 
         self._next_instruction = instruction.next_instruction_pointer(self._next_instruction)
+
+    def run(self):
+        try:
+            while True:
+                self.execute_next()
+        except ProgramHalted:
+            pass
+        except InvalidOpCode as exc:
+            print(exc)
+
+        return self.get_memory_address(0)
 
 
 ADD_INSTRUCTION = Instruction(1, 3, lambda memory, parameters: memory.update(
@@ -86,6 +106,19 @@ MUL_INSTRUCTION = Instruction(2, 3, lambda memory, parameters: memory.update(
 HALT_INSTRUCTION = Instruction(99, 0, lambda memory, parameters=(): (_ for _ in parameters).throw(ProgramHalted))
 
 
+def run_until_target(program, initial_state, target=None):
+
+    for noun in range(0, 100):
+        for verb in range(0, 100):
+            program.load_memory(initial_state)
+            program.set_memory_address(1, noun)
+            program.set_memory_address(2, verb)
+
+            execution_result = program.run()
+            if execution_result == target:
+                return noun, verb
+
+
 def main():
 
     program = Program()
@@ -95,20 +128,17 @@ def main():
     program.add_instruction(HALT_INSTRUCTION)
 
     program.initialize_memory_from_file('input.txt')
+    initial_state = program.dump_memory()
 
     # Reset program state after "1202 program alarm"
     program.set_memory_address(1, 12)
     program.set_memory_address(2, 2)
 
-    try:
-        while True:
-            program.run()
-    except ProgramHalted:
-        pass
-    except InvalidOpCode as exc:
-        print(exc)
+    print(f'Part One: {program.run()}')
 
-    print(f'Part One: {program.get_memory_address(0)}')
+    noun, verb = run_until_target(program, initial_state, target=19690720)
+
+    print(f'Part Two: 100 * {noun} + {verb} = {100 * noun + verb}')
 
 
 if __name__ == '__main__':
