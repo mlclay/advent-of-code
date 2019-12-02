@@ -1,91 +1,114 @@
 #!/usr/bin/python3
 
 
-class InstructionSet:
+class Instruction:
+    def __init__(self, opcode, parameter_count, method):
+        self.opcode = opcode
+        self.parameter_count = parameter_count
+        self.method = method
 
-    class Halt(Exception):
-        pass
+    def __eq__(self, other):
+        if isinstance(other, int):
+            return self.opcode == other
+        if isinstance(other, Instruction):
+            return self.opcode == other.opcode
+        raise InvalidOpCode(other)
 
-    class InvalidOpCode(Exception):
-        def __init__(self, opcode, instruction_offset):
-            self.opcode = opcode
-            self.instruction_offset = instruction_offset
+    def execute(self, memory, memory_offset):
+        parameters = []
+        if self.parameter_count >= 1:
+            for index in range(1, self.parameter_count + 1):
+                parameters.append(memory[memory_offset + index])
+        self.method(memory, parameters)
 
-        def __str__(self):
-            return f'Invalid OpCode [{self.opcode}] encountered at offset {self.instruction_offset}'
+    def next_instruction_pointer(self, instruction_pointer):
+        return instruction_pointer + self.parameter_count + 1
 
-    class OpCodes:
-        ADD = 1
-        MUL = 2
-        HALT = 99
+
+class ProgramHalted(BaseException):
+    pass
+
+
+class InvalidOpCode(BaseException):
+    def __init__(self, opcode, instruction_pointer=None):
+        self.opcode = opcode
+        self.instruction_pointer = instruction_pointer
+
+    def __str__(self):
+        return f'Invalid OpCode [{self.opcode}] encountered' \
+               f'{f" at pointer {self.instruction_pointer}" if self.instruction_pointer else ""}'
+
+
+class Program:
 
     def __init__(self):
-        self._int_codes = {}
+        self._memory = {}
+        self._instructions = {}
         self._next_instruction = 0
 
     def __str__(self):
-        return ','.join([str(x) for x in self._int_codes.values()])
+        return ','.join([str(x) for x in self._memory.values()])
 
-    def add_int_code(self, position, code):
-        self._int_codes[position] = int(code)
+    def add_instruction(self, instruction):
+        self._instructions[instruction.opcode] = instruction
 
-    def get_int_code(self, position):
-        return self._int_codes[position]
+    def get_instruction_by_opcode(self, opcode):
+        try:
+            return self._instructions[opcode]
+        except KeyError:
+            raise InvalidOpCode(opcode)
 
-    @property
-    def next_instruction(self):
-        next_instruction = self._next_instruction
-        self._next_instruction += 4
-        return next_instruction
+    def initialize_memory_from_file(self, file_name):
+        with open(file_name, 'r') as txt:
+            for position, code in enumerate(txt.read().strip().split(',')):
+                self.set_memory_address(position, code)
+
+    def set_memory_address(self, address, code):
+        self._memory[address] = int(code)
+
+    def get_memory_address(self, address):
+        return self._memory[address]
 
     def run(self):
-        instruction_offset = self.next_instruction
+        instruction = self.get_instruction_by_opcode(self.get_memory_address(self._next_instruction))
 
-        opcode = self._int_codes[instruction_offset]
+        instruction.execute(self._memory, self._next_instruction)
 
-        if opcode == InstructionSet.OpCodes.HALT:
-            raise InstructionSet.Halt
-
-        arg1_position = self._int_codes[instruction_offset + 1]
-        arg2_position = self._int_codes[instruction_offset + 2]
-        result_position = self._int_codes[instruction_offset + 3]
-
-        if opcode == InstructionSet.OpCodes.ADD:
-            self._int_codes[result_position] = self._int_codes[arg1_position] + self._int_codes[arg2_position]
-        elif opcode == InstructionSet.OpCodes.MUL:
-            self._int_codes[result_position] = self._int_codes[arg1_position] * self._int_codes[arg2_position]
-        else:
-            raise InstructionSet.InvalidOpCode(opcode, instruction_offset)
+        self._next_instruction = instruction.next_instruction_pointer(self._next_instruction)
 
 
-def parse_input():
-    """
-    Parse input.txt to an InstructionSet
-    """
-    instruction_set = InstructionSet()
-
-    with open('input.txt', 'r') as txt:
-        for position, code in enumerate(txt.read().strip().split(',')):
-            instruction_set.add_int_code(position, code)
-
-    return instruction_set
+ADD_INSTRUCTION = Instruction(1, 3, lambda memory, parameters: memory.update(
+    {(parameters[2]): memory[parameters[0]] + memory[parameters[1]]}
+))
+MUL_INSTRUCTION = Instruction(2, 3, lambda memory, parameters: memory.update(
+    {(parameters[2]): memory[parameters[0]] * memory[parameters[1]]}
+))
+HALT_INSTRUCTION = Instruction(99, 0, lambda memory, parameters=(): (_ for _ in parameters).throw(ProgramHalted))
 
 
 def main():
-    instruction_set = parse_input()
 
-    instruction_set.add_int_code(1, 12)
-    instruction_set.add_int_code(2, 2)
+    program = Program()
+
+    program.add_instruction(ADD_INSTRUCTION)
+    program.add_instruction(MUL_INSTRUCTION)
+    program.add_instruction(HALT_INSTRUCTION)
+
+    program.initialize_memory_from_file('input.txt')
+
+    # Reset program state after "1202 program alarm"
+    program.set_memory_address(1, 12)
+    program.set_memory_address(2, 2)
 
     try:
         while True:
-            instruction_set.run()
-    except InstructionSet.Halt:
+            program.run()
+    except ProgramHalted:
         pass
-    except InstructionSet.InvalidOpCode as exc:
+    except InvalidOpCode as exc:
         print(exc)
 
-    print(f'Part One: {instruction_set.get_int_code(0)}')
+    print(f'Part One: {program.get_memory_address(0)}')
 
 
 if __name__ == '__main__':
