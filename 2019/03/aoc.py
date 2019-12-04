@@ -30,7 +30,7 @@ class Point:
 class Wire:
     def __init__(self):
         self.current_point = Point()
-        self.included_points = set()
+        self.travelled_points = [Point()]
 
     @staticmethod
     def xy_delta_from_segment(segment):
@@ -57,25 +57,36 @@ class Wire:
         x, y = Wire.xy_delta_from_segment(segment)
         next_point = self.current_point.new_point_from_offset(x=x, y=y)
 
+        range_increment = 1
+
         if x:
-            intermediate_points = set(Point(x=_x, y=self.current_point.y)
-                                      for _x in range(min(next_point.x, self.current_point.x),
-                                                      max(next_point.x, self.current_point.x) + 1))
+            if x < 0:
+                range_increment = -1
+            intermediate_points = [Point(x=_x, y=self.current_point.y)
+                                   for _x in range(self.current_point.x,
+                                                   next_point.x + range_increment, range_increment)]
 
         elif y:
-            intermediate_points = set(Point(x=self.current_point.x, y=_y)
-                                      for _y in range(min(next_point.y, self.current_point.y),
-                                                      max(next_point.y, self.current_point.y) + 1))
+            if y < 0:
+                range_increment = -1
+            intermediate_points = [Point(x=self.current_point.x, y=_y)
+                                   for _y in range(self.current_point.y,
+                                                   next_point.y + range_increment, range_increment)]
         else:
             raise Exception(f'Unexpectedly stayed at same point during update with segment {segment}')
 
         self.current_point = next_point
-        self.included_points.update(intermediate_points)
+        self.travelled_points.extend(intermediate_points[1:])
 
     def intersection(self, other_wire):
-        intersection = self.included_points.intersection(other_wire.included_points)
+        my_set = set(self.travelled_points)
+        other_set = set(other_wire.travelled_points)
+        intersection = my_set.intersection(other_set)
         intersection.discard(Point())
         return intersection
+
+    def get_travel_distance(self, point):
+        return self.travelled_points.index(point)
 
 
 def parse_input():
@@ -102,7 +113,11 @@ def main():
 
     part_one = min([x.manhattan_distance() for x in intersection])
 
-    print(f'Distance: {part_one}')
+    print(f'Minimum Manhattan Distance: {part_one}')
+
+    part_two = min([wires[0].get_travel_distance(x) + wires[1].get_travel_distance(x) for x in intersection])
+
+    print(f'Minimum Signal Delay: {part_two}')
 
 
 if __name__ == '__main__':
