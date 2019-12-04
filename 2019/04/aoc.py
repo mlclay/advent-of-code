@@ -25,10 +25,19 @@ class Password:
     def valid(self):
         contains_double = False
         never_decreases = True
+        triple_digit = 0
 
         for index in range(0, 5):
             if self.digits[index] == self.digits[index + 1]:
-                contains_double = True
+                if index < 4:
+                    if self.digits[index] == self.digits[index + 2]:
+                        triple_digit = self.digits[index]
+                    else:
+                        if self.digits[index] != triple_digit:
+                            contains_double = True
+                else:
+                    if self.digits[index] != triple_digit:
+                        contains_double = True
             if self.digits[index + 1] < self.digits[index]:
                 never_decreases = False
 
