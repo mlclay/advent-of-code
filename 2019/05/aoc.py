@@ -15,13 +15,15 @@ class Instruction:
         def __call__(self, context):
             raise NotImplementedError()
 
+        @staticmethod
+        def update_execution_pointer(context):
+            context.execution_pointer += len(context.instruction_parameters) + 1
+
         def get_parameter_values(self, context):
             parameter_values = []
 
             if self.last_parameter_immediate and context.instruction_parameters:
                 context.instruction_parameters[-1]['mode'] = Instruction.Method.Parameter.MODE_IMMEDIATE
-
-            # print(f'Getting parameter values for {parameters} in {memory.values()}')
 
             for parameter in context.instruction_parameters:
                 mode = parameter['mode']
@@ -34,7 +36,6 @@ class Instruction:
                 else:
                     raise InvalidParameterMode(mode)
 
-            # print(f'Got parameter values for {parameter_values}')
             return parameter_values
 
     class ExecutionContext:
@@ -61,7 +62,6 @@ class Instruction:
             raise Exception(f'Provided method not of class Instruction.Method')
 
     def __eq__(self, other):
-        # print(f'In Instruction Equality against {other}')
         if isinstance(other, int):
             if other >= 100:
                 other = int(str(other)[-2:])
@@ -97,7 +97,6 @@ class Instruction:
                     'mode': parameter_modes[index],
                 })
         self.method(context)
-        context.execution_pointer += self.parameter_count + 1
 
 
 class ProgramHalted(BaseException):
@@ -189,18 +188,21 @@ class AddMethod(Instruction.Method):
     def __call__(self, context):
         parameter_values = self.get_parameter_values(context)
         context.program_memory[parameter_values[2]] = parameter_values[0] + parameter_values[1]
+        self.update_execution_pointer(context)
 
 
 class MulMethod(Instruction.Method):
     def __call__(self, context):
         parameter_values = self.get_parameter_values(context)
         context.program_memory[parameter_values[2]] = parameter_values[0] * parameter_values[1]
+        self.update_execution_pointer(context)
 
 
 class StoreInputMethod(Instruction.Method):
     def __call__(self, context):
         parameter_values = self.get_parameter_values(context)
         context.program_memory[parameter_values[0]] = int(input('TEST execution requires input: '))
+        self.update_execution_pointer(context)
 
 
 class OutputAddressMethod(Instruction.Method):
@@ -208,6 +210,47 @@ class OutputAddressMethod(Instruction.Method):
         self.last_parameter_immediate = False
         parameter_values = self.get_parameter_values(context)
         print(f'[Diagnostic]: {parameter_values[0]}')
+        self.update_execution_pointer(context)
+
+
+class JmpTrueMethod(Instruction.Method):
+    def __call__(self, context):
+        self.last_parameter_immediate = False
+        parameter_values = self.get_parameter_values(context)
+        if parameter_values[0] != 0:
+            context.execution_pointer = parameter_values[1]
+        else:
+            self.update_execution_pointer(context)
+
+
+class JmpFalseMethod(Instruction.Method):
+    def __call__(self, context):
+        self.last_parameter_immediate = False
+        parameter_values = self.get_parameter_values(context)
+        if parameter_values[0] == 0:
+            context.execution_pointer = parameter_values[1]
+        else:
+            self.update_execution_pointer(context)
+
+
+class LessThanMethod(Instruction.Method):
+    def __call__(self, context):
+        parameter_values = self.get_parameter_values(context)
+        if parameter_values[0] < parameter_values[1]:
+            context.program_memory[parameter_values[2]] = 1
+        else:
+            context.program_memory[parameter_values[2]] = 0
+        self.update_execution_pointer(context)
+
+
+class EqualsMethod(Instruction.Method):
+    def __call__(self, context):
+        parameter_values = self.get_parameter_values(context)
+        if parameter_values[0] == parameter_values[1]:
+            context.program_memory[parameter_values[2]] = 1
+        else:
+            context.program_memory[parameter_values[2]] = 0
+        self.update_execution_pointer(context)
 
 
 class HaltMethod(Instruction.Method):
@@ -222,6 +265,10 @@ def main():
     program.add_instruction(Instruction(2, 3, MulMethod()))
     program.add_instruction(Instruction(3, 1, StoreInputMethod()))
     program.add_instruction(Instruction(4, 1, OutputAddressMethod()))
+    program.add_instruction(Instruction(5, 2, JmpTrueMethod()))
+    program.add_instruction(Instruction(6, 2, JmpFalseMethod()))
+    program.add_instruction(Instruction(7, 3, LessThanMethod()))
+    program.add_instruction(Instruction(8, 3, EqualsMethod()))
     program.add_instruction(Instruction(99, 0, HaltMethod()))
 
     program.initialize_memory_from_file('input.txt')
