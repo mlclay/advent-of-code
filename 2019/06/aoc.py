@@ -26,6 +26,11 @@ class SpaceObject:
     def get_depth_to(self, other):
         return 0 if other == self else self.orbits.get_depth_to(other) + 1
 
+    def get_orbits_list_to(self, other):
+        if self.orbits != other:
+            return [self.orbits.name] + self.orbits.get_orbits_list_to(other)
+        return [self.orbits.name]
+
 
 def parse_input():
     """
@@ -66,6 +71,14 @@ def main():
         indirect_orbits += space_object.get_depth_to('COM')
 
     print(f'Part One: {indirect_orbits}')
+
+    you = space_objects[space_objects.index('YOU')]
+    san = space_objects[space_objects.index('SAN')]
+
+    you_orbits = set(you.get_orbits_list_to('COM'))
+    san_orbits = set(san.get_orbits_list_to('COM'))
+
+    print(f'Part Two: {len(you_orbits.symmetric_difference(san_orbits))}')
 
 
 if __name__ == '__main__':
