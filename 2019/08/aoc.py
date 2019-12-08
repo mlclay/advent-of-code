@@ -26,6 +26,19 @@ def main():
 
     print(f'Part One: {min_0_layer.count("1") * min_0_layer.count("2")}')
 
+    final_image = []
+
+    for pixel in range(0, 25 * 6):
+        for layer_index in range(0, len(layers)):
+            if layers[layer_index][pixel] != '2':
+                final_image.append(layers[layer_index][pixel])
+                break
+
+    for y in range(0, 6):
+        for x in range(0, 25):
+            print(' ' if final_image[(y*25) + x] == '0' else '█', end='')
+        print()
+
 
 if __name__ == '__main__':
     main()
