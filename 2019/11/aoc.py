@@ -53,7 +53,7 @@ class Robot:
             raise Exception(f'Invalid Heading ... somehow {self.position}')
 
 
-def main():
+def start_on_black():
     input_queue = Queue()
     output_queue = Queue()
 
@@ -83,6 +83,52 @@ def main():
             print('Program Complete')
             print(f'Painted {len(painted_grid.keys())} tiles at least once')
             break
+
+
+def start_on_white():
+    input_queue = Queue()
+    output_queue = Queue()
+
+    program = IntcodeProgram(io_scheme=IntcodeProgram.IOScheme.QUEUE,
+                             input_queue=input_queue,
+                             output_queue=output_queue)
+
+    program.initialize_memory_from_file('input.txt')
+
+    input_queue.put(WHITE)
+
+    painting_robot = Robot()
+    painted_grid = defaultdict(int)
+
+    while True:
+        try:
+            program.execute_next()
+        except WaitingForInput:
+            new_color = output_queue.get()
+            direction = output_queue.get()
+
+            painted_grid[painting_robot.get_grid_pos()] = new_color
+            painting_robot.move(direction)
+
+            input_queue.put(painted_grid[painting_robot.get_grid_pos()])
+        except ProgramHalted:
+            break
+
+    grid = [key for key in painted_grid.keys()]
+    max_x = max(grid, key=lambda val: val[0])[0]
+    max_y = max(grid, key=lambda val: val[1])[1]
+    min_x = min(grid, key=lambda val: val[0])[0]
+    min_y = min(grid, key=lambda val: val[1])[1]
+
+    for y in range(max_y, min_y - 1, -1):
+        for x in range(min_x, max_x + 1):
+            print(' ' if painted_grid[(x, y)] == BLACK else '█', end='')
+        print()
+
+
+def main():
+    start_on_black()
+    start_on_white()
 
 
 if __name__ == '__main__':
