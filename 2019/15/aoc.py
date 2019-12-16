@@ -53,6 +53,14 @@ class Point:
     def one_west(self):
         return Point(self.x - 1, self.y)
 
+    def get_neighbors(self):
+        return [
+            self.one_north(),
+            self.one_south(),
+            self.one_west(),
+            self.one_east()
+        ]
+
 
 class Movement:
     EAST = 4
@@ -81,6 +89,7 @@ class RepairDroid:
         self.path_hits = defaultdict(int)
         self.path_hits[self.position] += 1
         self.backup = False
+        self.path_unseen = set()
 
     def get_grid_pos(self):
         return self.position.x, self.position.y
@@ -91,7 +100,6 @@ class RepairDroid:
 
     def _set_next_movement(self):
         possible_movements = []
-        need_to_know = []
         movement_updated = False
 
         for direction, movement in [('one_north', Movement.NORTH),
@@ -107,17 +115,10 @@ class RepairDroid:
                 movement_updated = True
 
             elif direction_tile == Tile.UNKNOWN:
-                need_to_know.append(direction_point)
+                self.backup = True
 
             if direction_tile != Tile.WALL:
                 possible_movements.append((movement, self.path_hits[direction_point]))
-
-        if movement_updated:
-            if not possible_movements:
-                raise Exception(f'Unable to determine direction from {self.position}')
-
-        if need_to_know:
-            self.backup = True
 
         if not movement_updated:
             self.movement = min(possible_movements, key=lambda x: x[1])[0]
@@ -137,13 +138,18 @@ class RepairDroid:
             raise Exception(f'Unknown Movement {self.movement}')
 
         self.path_map[outcome_position] = Tile(outcome)
+        self.path_hits[self.position] += 1
+        self.path_unseen.discard(outcome_position)
 
         if self.path_map[outcome_position] == Tile.WALL:
             self.backup = False
             self._set_next_movement()
         else:
             self.position = outcome_position
-            self.path_hits[self.position] += 1
+
+            for neighbor in self.position.get_neighbors():
+                if neighbor not in self.path_map:
+                    self.path_unseen.add(neighbor)
 
             if self.backup:
                 self.backup = False
@@ -161,7 +167,7 @@ class RepairDroid:
 
         return x_min, y_min, x_max, y_max
 
-    def draw_map(self, stdscr, message=None, shortest_path=[]):
+    def draw_map(self, stdscr, message=None, draw_path=[]):
         x_min, y_min, x_max, y_max = self._get_bounding_box()
         y_offset = abs(y_min) if y_min < 0 else 0
         x_offset = abs(x_min) if x_min < 0 else 0
@@ -169,7 +175,7 @@ class RepairDroid:
             for x in range(x_min, x_max + 1):
 
                 point_tile = self.path_map.get(Point(x, y), Tile.UNKNOWN)
-                point_color = curses.color_pair(2) if Point(x, y) in shortest_path else curses.color_pair(1)
+                point_color = curses.color_pair(2) if Point(x, y) in draw_path else curses.color_pair(1)
                 if Point(x, y) == Point(0, 0):
                     stdscr.addstr(y + y_offset, x + x_offset, f'S', point_color)
                 elif Point(x, y) == self.position and point_tile != Tile.O2_SYSTEM:
@@ -196,6 +202,12 @@ class Node:
 
     def __eq__(self, other):
         return self.position == other.position
+
+    def __str__(self):
+        return f'Node<{self.g},{self.h},{self.f}>{self.position}'
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def astar(grid, start, end):
@@ -288,6 +300,7 @@ def astar(grid, start, end):
 
             # Add the child to the open list
             open_list.append(child)
+    return closed_list
 
 
 def main(stdscr):
@@ -316,14 +329,34 @@ def main(stdscr):
             droid.process_program_outcome(program)
             droid.draw_map(stdscr)
 
-    droid.draw_map(stdscr, message=f'O2 System at {droid.position}')
+    o2_system = droid.position
+
+    droid.draw_map(stdscr, message=f'O2 System at {o2_system}')
     stdscr.getch()
 
-    shortest_path = astar(droid.path_map, Point(0, 0), droid.position)
+    shortest_path = astar(droid.path_map, Point(0, 0), o2_system)
 
-    droid.draw_map(stdscr, shortest_path=shortest_path, message=f'Part One: {len(shortest_path) - 1}')
+    droid.draw_map(stdscr, draw_path=shortest_path, message=f'Part One: {len(shortest_path) - 1}')
     stdscr.getch()
-    curses.endwin()
+
+    while droid.path_unseen:
+        try:
+            program.execute_next()
+
+        except WaitingForInput:
+            droid.process_program_outcome(program)
+            droid.draw_map(stdscr)
+
+    droid.draw_map(stdscr, message=f'end map')
+    stdscr.getch()
+
+    all_paths = astar(droid.path_map, o2_system, Point(1000, 1000))
+    max_depth = max(all_paths, key=lambda x: x.g)
+
+    longest_path = astar(droid.path_map, o2_system, max_depth.position)
+    droid.draw_map(stdscr, message=f'end map', draw_path=longest_path)
+    droid.draw_map(stdscr, draw_path=longest_path, message=f'Part Two: {len(longest_path) - 1}')
+    stdscr.getch()
 
 
 if __name__ == '__main__':
