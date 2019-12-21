@@ -1,8 +1,8 @@
 #!/usr/bin/python3
-import math
-from collections import namedtuple
 
+WALL = '#'
 PATH = '.'
+EMPTY = ' '
 
 START = 'AA'
 STOP = 'ZZ'
@@ -13,6 +13,7 @@ class Point:
         self.x = x
         self.y = y
         self.teleport = None
+        self.inside = False
 
     def __str__(self):
         _teleport = f' -> {self.teleport}' if self.teleport else ''
@@ -30,6 +31,7 @@ class Point:
     def __copy__(self):
         point = Point(self.x, self.y)
         point.teleport = self.teleport
+        point.inside = self.inside
         return point
 
     def one_north(self):
@@ -60,12 +62,24 @@ def parse_input():
 
     with open('input.txt', 'r') as txt:
         for y_pos, y_row in enumerate(txt):
+            inside = False
+            was_inside = False
             for x_pos, space in enumerate(y_row):
+                if space == WALL or space == PATH:
+                    if was_inside:
+                        inside = False
+                    else:
+                        inside = True
+
+                if inside and not was_inside and space != WALL and space != PATH:
+                    was_inside = True
+
                 if space == PATH:
                     paths.append(Point(x_pos, y_pos))
                 elif space.isalpha():
                     point = Point(x_pos, y_pos)
                     point.teleport = space
+                    point.inside = inside
                     teleports.append(point)
 
     for index, teleport_one in enumerate(teleports):
@@ -93,6 +107,7 @@ def parse_input():
             finish.teleport = teleporter_name
         else:
             paths[paths.index(path_point[0])].teleport = teleporter_name
+            paths[paths.index(path_point[0])].inside = teleport_one.inside or teleport_two.inside
 
     return start, finish, paths
 
@@ -276,6 +291,48 @@ def main():
                 completed_paths.append(route)
 
     print(f'Part One: {min(completed_paths, key=lambda r: r["distance"])}')
+
+    possible_routes = [{
+        'point': start,
+        'taken': [start.teleport],
+        'distance': 0,
+        'depth': 0
+    }]
+
+    minimum_final_distance = None
+    completed_paths = []
+
+    while possible_routes:
+        route = possible_routes.pop(0)
+        for next_step in poi_pre_path[route['point']]:
+            if route['depth'] == 0 and not next_step.inside and next_step.teleport != STOP:
+                continue
+            if route['depth'] != 0 and (next_step.teleport == START or next_step.teleport == STOP):
+                continue
+            if next_step.teleport != STOP:
+
+                teleporter_exits = [x for x in paths if x.teleport == next_step.teleport]
+                teleporter_exits.remove(next_step)
+
+                new_point = {
+                    'point': teleporter_exits[0].__copy__(),
+                    'taken': route['taken'].copy(),
+                    'distance': route['distance'] + 1,
+                    'depth': route['depth'] + (1 if next_step.inside else -1)
+                }
+
+                new_point['taken'].append(next_step.teleport)
+                new_point['distance'] += poi_pre_path[route['point']][next_step]
+                if minimum_final_distance is None or new_point['distance'] < minimum_final_distance:
+                    possible_routes.append(new_point)
+            else:
+                route['taken'].append(next_step.teleport)
+                route['distance'] += poi_pre_path[route['point']][next_step]
+                if minimum_final_distance is None or route['distance'] < minimum_final_distance:
+                    minimum_final_distance = route['distance']
+                completed_paths.append(route)
+
+    print(f'Part Two: {min(completed_paths, key=lambda r: r["distance"])}')
 
 
 if __name__ == '__main__':
