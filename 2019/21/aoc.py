@@ -18,16 +18,31 @@ def draw_output(program):
             break
 
 
-def survey_hull(program):
-    springscript = [
-        'NOT A J',
-        'NOT B T',
-        'OR T J',
-        'NOT C T',
-        'OR T J',
-        'AND D J',
-        'WALK'
-    ]
+def survey_hull(program, memory_dump, run=False):
+    if not run:
+        springscript = [
+            'NOT A J',
+            'NOT B T',
+            'OR T J',
+            'NOT C T',
+            'OR T J',
+            'AND D J',
+            'WALK'
+        ]
+    else:
+        springscript = [
+            'NOT A J',
+            'NOT B T',
+            'OR T J',
+            'NOT C T',
+            'OR T J',
+            'AND D J',
+            'NOT E T',
+            'NOT T T',
+            'OR H T',
+            'AND T J',
+            'RUN'
+        ]
 
     for spring_instruction in springscript:
         for character in spring_instruction:
@@ -35,6 +50,7 @@ def survey_hull(program):
         program.queue_input(10)
 
     try:
+        program.load_memory(memory_dump)
         program.run_to_end()
 
     except ProgramHalted:
@@ -42,7 +58,7 @@ def survey_hull(program):
 
     hull_damage = draw_output(program)
 
-    print(f'Part One: {hull_damage}')
+    print(f'Action {springscript[-1]}: {hull_damage}')
 
 
 def main():
@@ -52,8 +68,10 @@ def main():
                              input_queue=input_queue,
                              output_queue=output_queue)
     program.initialize_memory_from_file('input.txt')
+    memory_dump = program.dump_memory()
 
-    survey_hull(program)
+    survey_hull(program, memory_dump)
+    survey_hull(program, memory_dump, run=True)
 
 
 if __name__ == '__main__':
